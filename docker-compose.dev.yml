@@ -1,0 +1,61 @@
+# ============================================
+# Development Docker Compose
+# Only runs database and cache services
+# ============================================
+
+services:
+  # ==========================================
+  # PostgreSQL Database
+  # ==========================================
+  database:
+    image: postgres:15-alpine
+    container_name: crashbot-postgres
+    environment:
+      POSTGRES_DB: crashbot_db
+      POSTGRES_USER: crashbot
+      POSTGRES_PASSWORD: crashbot_password
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crashbot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - crashbot-network
+
+  # ==========================================
+  # Redis (Cache & Queue)
+  # ==========================================
+  redis:
+    image: redis:7-alpine
+    container_name: crashbot-redis
+    ports:
+      - "6381:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - crashbot-network
+
+# ==========================================
+# Networks
+# ==========================================
+networks:
+  crashbot-network:
+    driver: bridge
+
+# ==========================================
+# Volumes
+# ==========================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local

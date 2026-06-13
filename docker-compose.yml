@@ -1,0 +1,213 @@
+# ============================================
+# PHASE 4: Docker Compose Configuration
+# Multi-container setup for complete system
+# ============================================
+
+version: '3.8'
+
+services:
+  # ==========================================
+  # PostgreSQL Database
+  # ==========================================
+  database:
+    image: postgres:15-alpine
+    container_name: crashbot-db
+    environment:
+      POSTGRES_DB: crashbot_db
+      POSTGRES_USER: crashbot
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-crashbot_password}
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crashbot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - crashbot-network
+
+  # ==========================================
+  # Redis (Cache & Queue)
+  # ==========================================
+  redis:
+    image: redis:7-alpine
+    container_name: crashbot-redis
+    ports:
+      - "6381:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - crashbot-network
+
+  # ==========================================
+  # Backend API
+  # ==========================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: crashbot-backend
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://crashbot:${DB_PASSWORD:-crashbot_password}@database:5432/crashbot_db
+      - REDIS_URL=redis://redis:6379/0
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - BING_SEARCH_API_KEY=${BING_SEARCH_API_KEY}
+      - SECRET_KEY=${SECRET_KEY:-change-this-secret-key}
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - ALLOWED_ORIGINS=["http://localhost:3002","http://localhost:8002"]
+    ports:
+      - "8002:8002"
+    volumes:
+      - dump_storage:/app/storage/dumps
+      - symbol_cache:/app/storage/symbols
+      - chroma_data:/app/storage/chroma_db
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - crashbot-network
+    restart: unless-stopped
+
+  # ==========================================
+  # Frontend
+  # ==========================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+      args:
+        - NEXT_PUBLIC_API_URL=http://localhost:8002
+    container_name: crashbot-frontend
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8002
+      - NEXT_PUBLIC_WS_URL=ws://localhost:8002
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+    networks:
+      - crashbot-network
+    restart: unless-stopped
+
+  # ==========================================
+  # Celery Worker (Phase 4)
+  # Background job processing
+  # ==========================================
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: crashbot-worker
+    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=4
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://crashbot:${DB_PASSWORD:-crashbot_password}@database:5432/crashbot_db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - SECRET_KEY=${SECRET_KEY:-change-this-secret-key}
+    volumes:
+      - dump_storage:/app/storage/dumps
+      - symbol_cache:/app/storage/symbols
+    depends_on:
+      - database
+      - redis
+    networks:
+      - crashbot-network
+    restart: unless-stopped
+
+  # ==========================================
+  # Flower (Celery Monitoring)
+  # ==========================================
+  flower:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: crashbot-flower
+    command: celery -A app.workers.celery_app flower --port=5555
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+      - worker
+    networks:
+      - crashbot-network
+
+  # ==========================================
+  # Prometheus (Monitoring) - DISABLED FOR NOW
+  # ==========================================
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   container_name: crashbot-prometheus
+  #   volumes:
+  #     - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+  #     - prometheus_data:/prometheus
+  #   command:
+  #     - '--config.file=/etc/prometheus/prometheus.yml'
+  #     - '--storage.tsdb.path=/prometheus'
+  #   ports:
+  #     - "9092:9090"
+  #   networks:
+  #     - crashbot-network
+
+  # ==========================================
+  # Grafana (Dashboards) - DISABLED FOR NOW
+  # ==========================================
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   container_name: crashbot-grafana
+  #   environment:
+  #     - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+  #   volumes:
+  #     - grafana_data:/var/lib/grafana
+  #   ports:
+  #     - "3003:3000"
+  #   depends_on:
+  #     - prometheus
+  #   networks:
+  #     - crashbot-network
+
+# ==========================================
+# Networks
+# ==========================================
+networks:
+  crashbot-network:
+    driver: bridge
+
+# ==========================================
+# Volumes
+# ==========================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  dump_storage:
+    driver: local
+  symbol_cache:
+    driver: local
+  chroma_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local

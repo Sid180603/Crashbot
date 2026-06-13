@@ -1,0 +1,139 @@
+# ==========================================================================
+# Environment / secrets
+# ==========================================================================
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+secrets.*
+
+# ==========================================================================
+# Python (backend)
+# ==========================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+nosetests.xml
+
+# Type checking / linting caches
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+.ruff_cache/
+
+# Packaging / build
+*.egg-info/
+.eggs/
+dist/
+build/
+wheels/
+*.egg
+
+# ==========================================================================
+# Node / Next.js (frontend)
+# ==========================================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnp
+.pnp.js
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+.vercel
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+
+# ==========================================================================
+# Application storage / generated data
+# ==========================================================================
+storage/dumps/*
+storage/symbols/*
+storage/chroma_db/*
+backend/storage/dumps/*
+backend/storage/symbols/*
+backend/storage/chroma_db/*
+!**/storage/.gitkeep
+!**/.gitkeep
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Crash dumps (test artifacts)
+*.dmp
+*.dump
+*.core
+
+# Logs
+logs/
+*.log
+
+# Stray generated documents
+pdf_*.pdf
+
+# Internal Siemens docs (not for public repo)
+SIEMENS_AI_SETUP.md
+SIEMENS_QUICK_REF.md
+
+# ==========================================================================
+# Docker
+# ==========================================================================
+docker-compose.override.yml
+
+# ==========================================================================
+# IDE / editors
+# ==========================================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# ==========================================================================
+# OS
+# ==========================================================================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ==========================================================================
+# Temporary files
+# ==========================================================================
+tmp/
+temp/
+*.tmp
+*.bak

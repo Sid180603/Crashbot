@@ -1,0 +1,93 @@
+# ============================================
+# PHASE 1: CORE INFRASTRUCTURE
+# ============================================
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Database
+sqlalchemy==2.0.23
+alembic==1.12.1
+asyncpg==0.29.0
+
+# Security & Auth
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-dotenv==1.0.0
+
+# File handling
+aiofiles==23.2.1
+
+# ============================================
+# PHASE 2: LLM INTEGRATION
+# ============================================
+openai>=1.12.0
+anthropic>=0.18.0
+tiktoken==0.5.1
+httpx>=0.27.0
+
+# ============================================
+# PHASE 1.5: RAG & VECTOR SEARCH
+# ============================================
+chromadb>=1.3.4
+pinecone-client==2.2.4
+sentence-transformers==2.2.2
+numpy==1.26.4
+
+# ============================================
+# WEB SEARCH & SCRAPING
+# ============================================
+beautifulsoup4==4.12.2
+lxml==4.9.3
+requests==2.31.0
+
+# ============================================
+# REPORT GENERATION
+# ============================================
+jinja2==3.1.2
+reportlab==4.0.7
+markdown==3.5.1
+weasyprint==60.1
+
+# ============================================
+# PHASE 4: WORKERS & QUEUE
+# ============================================
+celery==5.3.4
+redis==5.0.1
+flower==2.0.1
+
+# ============================================
+# MONITORING & LOGGING
+# ============================================
+prometheus-client==0.19.0
+sentry-sdk[fastapi]==1.38.0
+
+# ============================================
+# UTILITIES
+# ============================================
+python-slugify==8.0.1
+pytz==2023.3
+pyyaml==6.0.1
+
+# ============================================
+# DEVELOPMENT & TESTING
+# ============================================
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+black==23.11.0
+flake8==6.1.0
+mypy==1.7.1
+faker==20.1.0
+
+# ============================================
+# PHASE 5: ADVANCED FEATURES
+# ============================================
+scikit-learn==1.3.2  # ML classification & clustering
+scipy==1.11.4  # Scientific computing
+# langchain==0.0.340  # LLM orchestration (future)
+# llama-index==0.9.14  # RAG framework (future)
+# transformers==4.35.2  # Local LLMs (future)
+# torch==2.1.1  # For ML models (future)

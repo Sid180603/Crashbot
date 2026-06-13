@@ -5,7 +5,7 @@ An intelligent crash dump analysis system that uses AI (LLMs) to provide actiona
 ## Features (Planned)
 
 - Automated crash dump parsing (Windows via WinDbg, Linux via GDB, macOS via LLDB)
-- AI-powered root cause analysis using LLMs (Siemens AI / OpenAI / Anthropic)
+- AI-powered root cause analysis using LLMs (OpenAI / Anthropic)
 - Similar crash lookup using RAG (ChromaDB vector search)
 - Interactive stack trace visualizations (D3.js)
 - Batch analysis, clustering, severity classification (ML)
@@ -13,17 +13,21 @@ An intelligent crash dump analysis system that uses AI (LLMs) to provide actiona
 
 ## Current State
 
-> **Last reviewed: March 2026**
+> **Last reviewed: June 2026**
 
-This project is in **active development**. The backend cannot currently start due to a syntax error in `app/llm/analyzer.py`. See [REMAINING_WORK_AND_IMPROVEMENTS.md](REMAINING_WORK_AND_IMPROVEMENTS.md) for the full issue list and fix plan.
+This project is in **active development**. The backend now starts: the syntax
+corruption in `app/llm/analyzer.py` has been repaired and the LLM layer migrated
+to the `openai>=1.0` client API. See
+[REMAINING_WORK_AND_IMPROVEMENTS.md](REMAINING_WORK_AND_IMPROVEMENTS.md) for the
+full issue list and remaining work.
 
 | Area | Status | Notes |
 |------|--------|-------|
-| Backend API (FastAPI) | Blocked | `analyzer.py` syntax error prevents import |
+| Backend API (FastAPI) | Imports | `app.main` loads; all routes register |
 | Frontend (Next.js) | Scaffolded | Renders, but API integration has type mismatches |
 | Database (PostgreSQL) | Working | Docker container healthy on port 5435 |
 | Redis | Working | Docker container healthy on port 6381 |
-| LLM Integration | Broken | `openai` v2.x API change not accounted for |
+| LLM Integration | Migrated | Now uses `openai>=1.0` client; needs a valid API key to run |
 | RAG (ChromaDB) | Scaffolded | Code exists, vector DB empty (needs seed data) |
 | Authentication | Not enforced | Security module exists but no endpoints use it |
 | Tests | Mostly failing | ~60% of tests fail due to mock data / import errors |
@@ -109,11 +113,11 @@ Copy `.env.example` to `.env`. Key settings:
 |----------|---------|-------|
 | `DATABASE_URL` | `postgresql+asyncpg://...@localhost:5435/crashbot_db` | Must use `asyncpg` driver |
 | `REDIS_URL` | `redis://localhost:6381/0` | |
-| `LLM_PROVIDER` | `siemens` | Options: `siemens`, `openai`, `anthropic` |
-| `LLM_MODEL` | `qwen3-30b-a3b-instruct-2507` | |
+| `LLM_PROVIDER` | `openai` | Options: `openai`, `anthropic` |
+| `LLM_MODEL` | `gpt-4o-mini` | |
 | `SECRET_KEY` | `change-this-in-production` | **Change in production** |
-| `SIEMENS_API_KEY` | (empty) | Required for Siemens AI provider |
 | `OPENAI_API_KEY` | (empty) | Required for OpenAI provider |
+| `ANTHROPIC_API_KEY` | (empty) | Required for Anthropic provider |
 
 ## Ports
 
@@ -136,7 +140,6 @@ If Pylance shows hundreds of "import could not be resolved" warnings, point VSCo
 
 | Provider / Model | Approx Cost Per Crash |
 |------------------|-----------------------|
-| Siemens AI (qwen3-30b) | Internal — check Siemens AI pricing |
 | OpenAI GPT-4o-mini | ~$0.01–0.03 |
 | OpenAI GPT-4 | ~$0.10–0.30 |
 | Anthropic Claude 3 Haiku | ~$0.002–0.005 |
@@ -161,8 +164,6 @@ cd backend
 | [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) | File-by-file structure reference |
 | [Crashbot-Implementation-Guide-Python312.md](Crashbot-Implementation-Guide-Python312.md) | Enhancement implementation guide |
 | [Crash_Analyzer_Architecture.md](Crash_Analyzer_Architecture.md) | Original architecture design |
-| [SIEMENS_AI_SETUP.md](SIEMENS_AI_SETUP.md) | Siemens AI integration setup |
-| [SIEMENS_QUICK_REF.md](SIEMENS_QUICK_REF.md) | Siemens AI quick reference |
 | [docs/api.md](docs/api.md) | API endpoint reference |
 | [docs/development.md](docs/development.md) | Development workflow guide |
 

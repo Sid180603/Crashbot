@@ -45,15 +45,18 @@ class LLMAnalyzer:
         self.temperature = settings.LLM_TEMPERATURE
         self.cost_usd = 0.0
         self.tokens_used = {"input": 0, "output": 0}
+        self.openai_client = None
         
         if self.provider == "openai":
-            openai.api_key = settings.OPENAI_API_KEY
+            self.openai_client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
         elif self.provider == "anthropic":
             self.anthropic_client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
         elif self.provider == "siemens":
             # Siemens uses OpenAI-compatible API
-            openai.api_key = settings.SIEMENS_API_KEY
-            openai.base_url = settings.LLM_BASE_URL
+            self.openai_client = openai.OpenAI(
+                api_key=settings.SIEMENS_API_KEY,
+                base_url=settings.LLM_BASE_URL,
+            )
             logger.info(f"Initialized Siemens AI provider with base URL: {settings.LLM_BASE_URL}")
     
     def analyze_crash(self, crash_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -180,7 +183,7 @@ Provide ONLY the JSON response, no additional text.
     def _analyze_with_openai(self, prompt: str) -> str:
         """Call OpenAI API"""
         try:
-            response = openai.chat.completions.create(
+            response = self.openai_client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {
@@ -379,7 +382,7 @@ Provide ONLY the JSON response, no additional text.
                 }
             ]
             
-            response = openai.chat.completions.create(
+            response = self.openai_client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {
@@ -399,48 +402,48 @@ Provide ONLY the JSON response, no additional text.
             
             # Track usage
             if response.usage:
-                self.tokens_used["input\"] = response.usage.prompt_tokens
-                self.tokens_used["output\"] = response.usage.completion_tokens
+                self.tokens_used["input"] = response.usage.prompt_tokens
+                self.tokens_used["output"] = response.usage.completion_tokens
                 self.cost_usd = self._calculate_cost(
                     self.model,
                     response.usage.prompt_tokens,
                     response.usage.completion_tokens
                 )
                 logger.info(
-                    f\"{self.provider.upper()} API (Function Calling) usage: {response.usage.prompt_tokens} input + \"
-                    f\"{response.usage.completion_tokens} output = ${self.cost_usd:.4f}\"
+                    f"{self.provider.upper()} API (Function Calling) usage: {response.usage.prompt_tokens} input + "
+                    f"{response.usage.completion_tokens} output = ${self.cost_usd:.4f}"
                 )
             
             # Extract function call result
             if response.choices[0].message.tool_calls:
                 function_args = response.choices[0].message.tool_calls[0].function.arguments
-                logger.info(\"Function calling returned structured output\")
+                logger.info("Function calling returned structured output")
                 return function_args
             else:
                 # Fallback to regular content
                 return response.choices[0].message.content
             
         except Exception as e:
-            logger.error(f\"Function calling failed: {e}, falling back to regular mode\")
+            logger.error(f"Function calling failed: {e}, falling back to regular mode")
             # Fallback to regular OpenAI call
             return self._analyze_with_openai(prompt)
     
     async def analyze_crash_ensemble(self, crash_data: Dict[str, Any]) -> Dict[str, Any]:
-        \"\"\"
+        """
         Analyze crash with multiple models for consensus
         Provides higher confidence through model agreement
-        \"\"\"
+        """
         if not settings.ENABLE_MULTI_MODEL_ENSEMBLE:
             # If ensemble disabled, use regular analysis
             return self.analyze_crash(crash_data)
         
-        logger.info(\"Starting multi-model ensemble analysis\")
+        logger.info("Starting multi-model ensemble analysis")
         start_time = time.time()
         
         try:
             # Parse ensemble models from config
-            models = [m.strip() for m in settings.ENSEMBLE_MODELS.split(\",\")]
-            logger.info(f\"Using ensemble models: {models}\")
+            models = [m.strip() for m in settings.ENSEMBLE_MODELS.split(",")]
+            logger.info(f"Using ensemble models: {models}")
             
             # Analyze with each model
             results = []
@@ -451,17 +454,17 @@ Provide ONLY the JSON response, no additional text.
                     analyzer.provider = settings.LLM_PROVIDER
                     
                     result = analyzer.analyze_crash(crash_data)
-                    result[\"model\"] = model
+                    result["model"] = model
                     results.append(result)
-                    logger.info(f\"Model {model} completed analysis\")
+                    logger.info(f"Model {model} completed analysis")
                 except Exception as e:
-                    logger.error(f\"Model {model} failed: {e}\")
+                    logger.error(f"Model {model} failed: {e}")
                     continue
             
             if len(results) < settings.ENSEMBLE_MIN_CONSENSUS:
                 logger.warning(
-                    f\"Not enough models completed ({len(results)}/{settings.ENSEMBLE_MIN_CONSENSUS}), \"
-                    \"using single model\"
+                    f"Not enough models completed ({len(results)}/{settings.ENSEMBLE_MIN_CONSENSUS}), "
+                    "using single model"
                 )
                 return self.analyze_crash(crash_data)
             
@@ -469,66 +472,66 @@ Provide ONLY the JSON response, no additional text.
             aggregated = self._aggregate_ensemble_results(results)
             
             duration = time.time() - start_time
-            logger.info(f\"Ensemble analysis complete in {duration:.2f}s with {len(results)} models\")
+            logger.info(f"Ensemble analysis complete in {duration:.2f}s with {len(results)} models")
             
             return aggregated
             
         except Exception as e:
-            logger.error(f\"Ensemble analysis failed: {e}, falling back to single model\")
+            logger.error(f"Ensemble analysis failed: {e}, falling back to single model")
             return self.analyze_crash(crash_data)
     
     def _aggregate_ensemble_results(self, results: List[Dict[str, Any]]) -> Dict[str, Any]:
-        \"\"\"
+        """
         Aggregate results from multiple models
         Uses voting for categorical fields and averaging for numerical
-        \"\"\"
+        """
         if not results:
-            raise ValueError(\"No results to aggregate\")
+            raise ValueError("No results to aggregate")
         
         # Use most common root cause
-        root_causes = [r.get(\"root_cause\", \"\") for r in results]
+        root_causes = [r.get("root_cause", "") for r in results]
         root_cause = max(set(root_causes), key=root_causes.count)
         
         # Use most common severity
-        severities = [r.get(\"severity\", \"medium\") for r in results]
+        severities = [r.get("severity", "medium") for r in results]
         severity = max(set(severities), key=severities.count)
         
         # Average confidence scores
-        confidence_scores = [r.get(\"confidence_score\", 0) for r in results]
+        confidence_scores = [r.get("confidence_score", 0) for r in results]
         avg_confidence = sum(confidence_scores) // len(confidence_scores)
         
         # Combine explanations (from highest confidence model)
-        best_result = max(results, key=lambda x: x.get(\"confidence_score\", 0))
-        explanation = best_result.get(\"explanation\", \"\")
+        best_result = max(results, key=lambda x: x.get("confidence_score", 0))
+        explanation = best_result.get("explanation", "")
         
         # Merge solutions (deduplicate by title)
         all_solutions = []
         seen_titles = set()
         for result in results:
-            for solution in result.get(\"solutions\", []):
-                title = solution.get(\"title\", \"\")
+            for solution in result.get("solutions", []):
+                title = solution.get("title", "")
                 if title and title not in seen_titles:
                     all_solutions.append(solution)
                     seen_titles.add(title)
         
         # Sort solutions by priority
-        all_solutions.sort(key=lambda x: x.get(\"priority\", 5))
+        all_solutions.sort(key=lambda x: x.get("priority", 5))
         
         # Merge references
         all_references = []
         for result in results:
-            all_references.extend(result.get(\"references\", []))
+            all_references.extend(result.get("references", []))
         unique_references = list(set(all_references))
         
         return {
-            \"root_cause\": root_cause,
-            \"explanation\": explanation,
-            \"solutions\": all_solutions[:10],  # Top 10 solutions
-            \"severity\": severity,
-            \"confidence_score\": avg_confidence,
-            \"references\": unique_references,
-            \"ensemble_models\": [r.get(\"model\") for r in results],
-            \"ensemble_agreement\": len(set(root_causes)) == 1  # All models agree
+            "root_cause": root_cause,
+            "explanation": explanation,
+            "solutions": all_solutions[:10],  # Top 10 solutions
+            "severity": severity,
+            "confidence_score": avg_confidence,
+            "references": unique_references,
+            "ensemble_models": [r.get("model") for r in results],
+            "ensemble_agreement": len(set(root_causes)) == 1  # All models agree
         }
 
 

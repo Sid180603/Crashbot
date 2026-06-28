@@ -8,6 +8,7 @@ import asyncio
 import time
 from typing import Dict, List, Optional, Any
 from pathlib import Path
+from datetime import datetime, timezone
 
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -309,7 +310,7 @@ async def analyze_crash_dump_async(crash_id: str, storage_path: str):
                 # Fallback to Windows-only parser if universal parser fails
                 logger.warning(f"Universal parser failed, falling back to WinDbg parser: {e}")
                 parser = WinDbgParser(storage_path)
-                parsed_data = await asyncio.get_event_loop().run_in_executor(
+                parsed_data = await asyncio.get_running_loop().run_in_executor(
                     None, parser.parse
                 )
             
@@ -334,7 +335,7 @@ async def analyze_crash_dump_async(crash_id: str, storage_path: str):
             try:
                 logger.info(f"Searching for similar crashes for {crash_id}")
                 vector_store = get_vector_store()
-                similar_results = await asyncio.get_event_loop().run_in_executor(
+                similar_results = await asyncio.get_running_loop().run_in_executor(
                     None, 
                     vector_store.find_similar_crashes,
                     parsed_data,
@@ -378,7 +379,7 @@ async def analyze_crash_dump_async(crash_id: str, storage_path: str):
                     # Use analyzer directly to get cost info
                     from app.llm.analyzer import LLMAnalyzer
                     llm_analyzer = LLMAnalyzer()
-                    llm_result = await asyncio.get_event_loop().run_in_executor(
+                    llm_result = await asyncio.get_running_loop().run_in_executor(
                         None, llm_analyzer.analyze_crash, enhanced_data
                     )
                     crash.llm_cost_usd = llm_analyzer.cost_usd if llm_analyzer else 0.0
@@ -414,7 +415,7 @@ async def analyze_crash_dump_async(crash_id: str, storage_path: str):
                 crash.llm_cost_usd = llm_analyzer.cost_usd if llm_analyzer else 0.0
             
             crash.status = AnalysisStatus.COMPLETED
-            crash.completed_at = time.time()
+            crash.completed_at = datetime.now(timezone.utc)
             
             await db.commit()
             
@@ -422,7 +423,7 @@ async def analyze_crash_dump_async(crash_id: str, storage_path: str):
             try:
                 logger.info(f"Adding crash {crash_id} to vector store")
                 vector_store = get_vector_store()
-                await asyncio.get_event_loop().run_in_executor(
+                await asyncio.get_running_loop().run_in_executor(
                     None,
                     vector_store.add_crash_embedding,
                     crash_id,

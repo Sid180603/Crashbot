@@ -32,7 +32,7 @@ export const ThreadTimeline: React.FC<ThreadTimelineProps> = ({
     mermaid.initialize({
       startOnLoad: true,
       theme: 'default',
-      securityLevel: 'loose',
+      securityLevel: 'strict',
     });
 
     // Generate Mermaid diagram

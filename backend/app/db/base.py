@@ -1,15 +1,16 @@
 """
 Database base models - Phase 1
 """
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, DateTime
-from datetime import datetime
+from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy import Column, DateTime
+from datetime import datetime, timezone
 
 
-Base = declarative_base()
+class Base(DeclarativeBase):
+    pass
 
 
 class TimestampMixin:
     """Mixin for created_at and updated_at timestamps"""
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)

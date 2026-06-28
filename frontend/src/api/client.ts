@@ -111,9 +111,11 @@ class ApiClient {
     this.client.interceptors.request.use(
       (config) => {
         // Add auth token if available
-        const token = localStorage.getItem('auth_token');
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
+        if (typeof window !== 'undefined') {
+          const token = localStorage.getItem('auth_token');
+          if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+          }
         }
         return config;
       },

@@ -2,7 +2,7 @@
 Crash Analysis Model - Phase 1
 Stores crash dump analysis results
 """
-from sqlalchemy import Column, Integer, String, Text, JSON, Enum as SQLEnum, Float
+from sqlalchemy import Column, Integer, String, Text, JSON, Enum as SQLEnum, Float, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
@@ -67,7 +67,7 @@ class CrashAnalysis(Base, TimestampMixin):
     llm_provider: Mapped[Optional[str]] = Column(String(50), nullable=True)  # openai, anthropic, etc.
     llm_model: Mapped[Optional[str]] = Column(String(100), nullable=True)  # gpt-4, claude-3, etc.
     llm_cost_usd: Mapped[Optional[float]] = Column(Float, nullable=True)  # Cost of LLM analysis
-    completed_at: Mapped[Optional[float]] = Column(Float, nullable=True)  # Unix timestamp
+    completed_at: Mapped[Optional[Any]] = Column(DateTime(timezone=True), nullable=True)
     
     # RAG/Similar crashes (Phase 1.5)
     similar_crash_ids: Mapped[Optional[Any]] = Column(JSON, nullable=True)  # List of similar crash UUIDs

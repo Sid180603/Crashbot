@@ -82,6 +82,7 @@ class CrashData:
     
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for database storage"""
+        import dataclasses
         return {
             "platform": self.platform,
             "dump_type": self.dump_type.value,
@@ -90,8 +91,8 @@ class CrashData:
             "faulting_module": self.faulting_module,
             "faulting_function": self.faulting_function,
             "faulting_address": self.faulting_address,
-            "stack_trace": list(self.stack_trace),
-            "loaded_modules": list(self.loaded_modules),
+            "stack_trace": [dataclasses.asdict(f) for f in self.stack_trace],
+            "loaded_modules": [dataclasses.asdict(m) for m in self.loaded_modules],
             "threads": self.threads,
             "architecture": self.architecture,
         }

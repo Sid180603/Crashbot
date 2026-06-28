@@ -142,7 +142,15 @@ def mock_llm_response() -> dict:
 
 @pytest.fixture
 def temp_dump_file(tmp_path):
-    """Create a temporary dump file for testing"""
+    """Create a temporary Windows minidump file for testing"""
     dump_file = tmp_path / "test_crash.dmp"
-    dump_file.write_bytes(b"MOCK_DUMP_FILE_CONTENT")
+    dump_file.write_bytes(b"MDMP" + b"\x00" * 1024)
+    return str(dump_file)
+
+
+@pytest.fixture
+def linux_dump_file(tmp_path):
+    """Create a temporary Linux core dump file for testing"""
+    dump_file = tmp_path / "test_crash.core"
+    dump_file.write_bytes(b"\x7fELF" + b"\x00" * 1024)
     return str(dump_file)

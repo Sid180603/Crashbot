@@ -9,13 +9,19 @@ from app.core.config import settings
 
 
 # Create async engine
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    echo=settings.DEBUG,
-    pool_size=settings.DATABASE_POOL_SIZE,
-    max_overflow=settings.DATABASE_MAX_OVERFLOW,
-    poolclass=NullPool if settings.ENVIRONMENT == "test" else None,
-)
+if settings.ENVIRONMENT == "test":
+    engine = create_async_engine(
+        settings.DATABASE_URL,
+        echo=False,
+        poolclass=NullPool,
+    )
+else:
+    engine = create_async_engine(
+        settings.DATABASE_URL,
+        echo=settings.DEBUG,
+        pool_size=settings.DATABASE_POOL_SIZE,
+        max_overflow=settings.DATABASE_MAX_OVERFLOW,
+    )
 
 # Create session factory
 AsyncSessionLocal = async_sessionmaker(

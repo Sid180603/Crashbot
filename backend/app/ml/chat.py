@@ -3,7 +3,7 @@ PHASE 5: Conversational Chat
 Allow users to ask follow-up questions about crash analysis
 """
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.llm.analyzer import LLMAnalyzer
 from app.core.logging import get_logger
@@ -16,7 +16,7 @@ class ConversationMessage:
     def __init__(self, role: str, content: str, timestamp: datetime = None):
         self.role = role  # 'user' or 'assistant'
         self.content = content
-        self.timestamp = timestamp or datetime.utcnow()
+        self.timestamp = timestamp or datetime.now(timezone.utc)
 
 
 class CrashChatbot:
@@ -50,7 +50,7 @@ class CrashChatbot:
         
         # Get LLM response
         try:
-            response = self.llm._analyze_with_openai(prompt)
+            response = self.llm.send_prompt(prompt)
             
             # Add assistant response to history
             self.conversation_history.append(

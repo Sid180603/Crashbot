@@ -54,7 +54,7 @@ class SlackNotifier:
                 ]
             }
             
-            response = requests.post(self.webhook_url, json=payload)
+            response = requests.post(self.webhook_url, json=payload, timeout=30)
             response.raise_for_status()
             
             logger.info("Slack notification sent")
@@ -114,7 +114,8 @@ class JiraIntegration:
                 headers={
                     "Authorization": f"Bearer {self.api_token}",
                     "Content-Type": "application/json"
-                }
+                },
+                timeout=30
             )
             response.raise_for_status()
             
@@ -215,7 +216,8 @@ class GitHubIntegration:
                 headers={
                     "Authorization": f"token {self.token}",
                     "Accept": "application/vnd.github.v3+json"
-                }
+                },
+                timeout=30
             )
             response.raise_for_status()
             

@@ -1,8 +1,10 @@
 # Crashbot — Bug Report, Remaining Work & Improvements
 
-> **Last reviewed:** March 22, 2026 (complete line-by-line code audit of every source file)
+> **Last reviewed:** June 28, 2026
 >
 > This is the single source of truth for the project's actual state. Every issue listed below has been verified against the actual code with exact line numbers.
+>
+> **June 28, 2026 fix sweep:** Bugs #1–5, #7–25, #28–32 have been fixed. Remaining items: Bug #6 (auth enforcement — intentionally deferred, see below), Bug #26 (hardcoded secret keys — development-only), Bug #27 (frontend dead dependencies — optional cleanup), Bug #33 (list type mismatch — cosmetic).
 
 ---
 

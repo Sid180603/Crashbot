@@ -106,51 +106,49 @@ services:
     restart: unless-stopped
 
   # ==========================================
-  # Celery Worker (Phase 4)
-  # Background job processing
+  # Celery Worker & Flower (Phase 4) — disabled
+  # Requires app.workers.celery_app which does not exist yet.
+  # Uncomment when distributed task processing is implemented.
   # ==========================================
-  worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: crashbot-worker
-    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=4
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://crashbot:${DB_PASSWORD:-crashbot_password}@database:5432/crashbot_db
-      - REDIS_URL=redis://redis:6379/0
-      - CELERY_BROKER_URL=redis://redis:6379/1
-      - CELERY_RESULT_BACKEND=redis://redis:6379/2
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - SECRET_KEY=${SECRET_KEY:-change-this-secret-key}
-    volumes:
-      - dump_storage:/app/storage/dumps
-      - symbol_cache:/app/storage/symbols
-    depends_on:
-      - database
-      - redis
-    networks:
-      - crashbot-network
-    restart: unless-stopped
-
-  # ==========================================
-  # Flower (Celery Monitoring)
-  # ==========================================
-  flower:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: crashbot-flower
-    command: celery -A app.workers.celery_app flower --port=5555
-    environment:
-      - CELERY_BROKER_URL=redis://redis:6379/1
-      - CELERY_RESULT_BACKEND=redis://redis:6379/2
-    ports:
-      - "5555:5555"
-    depends_on:
-      - redis
-      - worker
-    networks:
-      - crashbot-network
+  # worker:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   container_name: crashbot-worker
+  #   command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=4
+  #   environment:
+  #     - DATABASE_URL=postgresql+asyncpg://crashbot:${DB_PASSWORD:-crashbot_password}@database:5432/crashbot_db
+  #     - REDIS_URL=redis://redis:6379/0
+  #     - CELERY_BROKER_URL=redis://redis:6379/1
+  #     - CELERY_RESULT_BACKEND=redis://redis:6379/2
+  #     - OPENAI_API_KEY=${OPENAI_API_KEY}
+  #     - SECRET_KEY=${SECRET_KEY:-change-this-secret-key}
+  #   volumes:
+  #     - dump_storage:/app/storage/dumps
+  #     - symbol_cache:/app/storage/symbols
+  #   depends_on:
+  #     - database
+  #     - redis
+  #   networks:
+  #     - crashbot-network
+  #   restart: unless-stopped
+  #
+  # flower:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   container_name: crashbot-flower
+  #   command: celery -A app.workers.celery_app flower --port=5555
+  #   environment:
+  #     - CELERY_BROKER_URL=redis://redis:6379/1
+  #     - CELERY_RESULT_BACKEND=redis://redis:6379/2
+  #   ports:
+  #     - "5555:5555"
+  #   depends_on:
+  #     - redis
+  #     - worker
+  #   networks:
+  #     - crashbot-network
 
   # ==========================================
   # Prometheus (Monitoring) - DISABLED FOR NOW

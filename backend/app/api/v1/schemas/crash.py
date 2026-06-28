@@ -74,13 +74,15 @@ class CrashAnalysisDetail(CrashAnalysisBase):
     # LLM analysis (Phase 2)
     root_cause: Optional[str] = None
     explanation: Optional[str] = None
-    solutions: Optional[List[str]] = None
+    solutions: Optional[List[Dict[str, Any]]] = None
     severity: Optional[CrashSeverity] = None
     confidence_score: Optional[float] = None
     references: Optional[List[str]] = None
-    
+    llm_analysis: Optional[Dict[str, Any]] = None
+
     # Similar crashes (Phase 1.5)
     similar_crash_ids: Optional[List[str]] = None
+    similar_crashes: Optional[List[Dict[str, Any]]] = None
     
     # Metadata
     platform: Optional[str] = None

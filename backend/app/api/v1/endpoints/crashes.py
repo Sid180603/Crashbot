@@ -5,9 +5,10 @@ File upload, status check, result retrieval
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
+import aiofiles
 import hashlib
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.db.session import get_db
 from app.db.models.crash import CrashAnalysis, AnalysisStatus
@@ -165,15 +166,16 @@ async def upload_crash_dump(
         )
     
     # Save file to storage
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     safe_filename = f"{timestamp}_{file.filename}"
     storage_path = os.path.join(settings.DUMP_STORAGE_PATH, safe_filename)
-    
-    with open(storage_path, "wb") as f:
-        f.write(content)
-    
+
+    os.makedirs(os.path.dirname(storage_path), exist_ok=True)
+    async with aiofiles.open(storage_path, "wb") as f:
+        await f.write(content)
+
     logger.info(f"File saved to: {storage_path}")
-    
+
     # Create database record
     crash_analysis = CrashAnalysis(
         filename=file.filename,
@@ -183,10 +185,15 @@ async def upload_crash_dump(
         platform=detected_platform,
         status=AnalysisStatus.QUEUED
     )
-    
-    db.add(crash_analysis)
-    await db.commit()
-    await db.refresh(crash_analysis)
+
+    try:
+        db.add(crash_analysis)
+        await db.commit()
+        await db.refresh(crash_analysis)
+    except Exception:
+        if os.path.exists(storage_path):
+            os.unlink(storage_path)
+        raise
     
     # Start background analysis
     background_tasks.add_task(
@@ -205,27 +212,6 @@ async def upload_crash_dump(
     )
 
 
-@router.get("/{crash_id}", response_model=CrashAnalysisDetail)
-async def get_crash_analysis(
-    crash_id: str,
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Get crash analysis by ID
-    
-    - **crash_id**: UUID of the crash analysis
-    """
-    result = await db.execute(
-        select(CrashAnalysis).where(CrashAnalysis.id == crash_id)
-    )
-    crash = result.scalar_one_or_none()
-    
-    if not crash:
-        raise HTTPException(status_code=404, detail="Crash analysis not found")
-    
-    return crash
-
-
 @router.get("/", response_model=List[CrashAnalysisResponse])
 async def list_crash_analyses(
     skip: int = 0,
@@ -235,54 +221,23 @@ async def list_crash_analyses(
 ):
     """
     List all crash analyses
-    
+
     - **skip**: Number of records to skip (pagination)
     - **limit**: Maximum number of records to return
     - **status**: Filter by analysis status
     """
-    query = select(CrashAnalysis).offset(skip).limit(limit)
-    
+    query = select(CrashAnalysis)
+
     if status:
         query = query.where(CrashAnalysis.status == status)
-    
+
     query = query.order_by(CrashAnalysis.created_at.desc())
-    
+    query = query.offset(skip).limit(limit)
+
     result = await db.execute(query)
     crashes = result.scalars().all()
-    
+
     return crashes
-
-
-@router.delete("/{crash_id}", status_code=204)
-async def delete_crash_analysis(
-    crash_id: str,
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Delete a crash analysis and its associated file
-    
-    - **crash_id**: UUID of the crash analysis
-    """
-    result = await db.execute(
-        select(CrashAnalysis).where(CrashAnalysis.id == crash_id)
-    )
-    crash = result.scalar_one_or_none()
-    
-    if not crash:
-        raise HTTPException(status_code=404, detail="Crash analysis not found")
-    
-    # Delete file from storage
-    if os.path.exists(crash.storage_path):
-        os.remove(crash.storage_path)
-        logger.info(f"Deleted file: {crash.storage_path}")
-    
-    # Delete database record
-    await db.delete(crash)
-    await db.commit()
-    
-    logger.info(f"Deleted crash analysis: {crash_id}")
-    
-    return None
 
 
 # ============================================
@@ -316,55 +271,6 @@ async def analyze_crashes_batch(
     result = await analyzer.analyze(db)
     
     return BatchAnalysisResponse(**result)
-
-
-@router.get("/{crash_id}/similar", response_model=SimilarCrashesResponse)
-async def get_similar_crashes(
-    crash_id: str,
-    limit: int = 5,
-    min_similarity: float = 0.7,
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Find crashes similar to the specified crash.
-    
-    - **crash_id**: UUID of the crash analysis
-    - **limit**: Maximum number of similar crashes to return
-    - **min_similarity**: Minimum similarity threshold (0-1)
-    """
-    if not settings.ENABLE_CRASH_CLUSTERING:
-        raise HTTPException(
-            status_code=403,
-            detail="Crash clustering feature is disabled"
-        )
-    
-    # Get target crash
-    result = await db.execute(
-        select(CrashAnalysis).where(CrashAnalysis.id == crash_id)
-    )
-    target_crash = result.scalar_one_or_none()
-    
-    if not target_crash:
-        raise HTTPException(status_code=404, detail="Crash analysis not found")
-    
-    # Get all completed crashes
-    result = await db.execute(
-        select(CrashAnalysis).where(
-            CrashAnalysis.status == AnalysisStatus.COMPLETED,
-            CrashAnalysis.id != crash_id
-        ).limit(1000)
-    )
-    all_crashes = result.scalars().all()
-    
-    # Find similar crashes
-    clusterer = CrashClusterer(similarity_threshold=min_similarity)
-    similar = clusterer.find_similar_crashes(target_crash, all_crashes, limit=limit)
-    
-    return SimilarCrashesResponse(
-        crash_id=crash_id,
-        similar_crashes=[SimilarCrashResult(**s) for s in similar],
-        count=len(similar)
-    )
 
 
 @router.post("/cluster", response_model=dict)
@@ -409,64 +315,6 @@ async def cluster_crashes(
         "clusters": clusters,
         "statistics": stats
     }
-
-
-# ============================================
-# PHASE 5: CHAT ENDPOINTS
-# ============================================
-
-@router.post("/{crash_id}/chat", response_model=ChatResponse)
-async def chat_about_crash(
-    crash_id: str,
-    request: ChatRequest,
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Ask follow-up questions about a crash analysis.
-    
-    - **crash_id**: UUID of the crash analysis
-    - **question**: Question to ask about the crash
-    """
-    if not settings.ENABLE_CHAT_FOLLOWUP:
-        raise HTTPException(
-            status_code=403,
-            detail="Chat feature is disabled"
-        )
-    
-    # Get crash
-    result = await db.execute(
-        select(CrashAnalysis).where(CrashAnalysis.id == crash_id)
-    )
-    crash = result.scalar_one_or_none()
-    
-    if not crash:
-        raise HTTPException(status_code=404, detail="Crash analysis not found")
-    
-    if crash.status != AnalysisStatus.COMPLETED:
-        raise HTTPException(
-            status_code=400,
-            detail="Crash analysis not completed yet"
-        )
-    
-    # Create chatbot with crash context
-    crash_data = {
-        "exception_code": crash.exception_code,
-        "exception_message": crash.exception_message,
-        "faulting_module": crash.faulting_module,
-        "stack_trace": crash.stack_trace,
-        "platform": crash.platform
-    }
-    
-    analysis = crash.llm_analysis or {}
-    
-    chatbot = CrashChatbot(crash_data, analysis)
-    answer = chatbot.ask(request.question)
-    history = chatbot.get_conversation_history()
-    
-    return ChatResponse(
-        answer=answer,
-        conversation_history=history
-    )
 
 
 # ============================================
@@ -550,8 +398,8 @@ async def create_jira_issue(
         raise HTTPException(status_code=404, detail="Crash analysis not found")
     
     # Create JIRA issue
-    jira_url = getattr(settings, 'JIRA_URL', '')
-    jira_token = getattr(settings, 'JIRA_API_TOKEN', '')
+    jira_url = settings.JIRA_URL
+    jira_token = settings.JIRA_API_TOKEN
     
     if not jira_url or not jira_token:
         raise HTTPException(
@@ -610,7 +458,7 @@ async def create_github_issue(
         raise HTTPException(status_code=404, detail="Crash analysis not found")
     
     # Create GitHub issue
-    github_token = getattr(settings, 'GITHUB_TOKEN', '')
+    github_token = settings.GITHUB_TOKEN
     
     if not github_token:
         raise HTTPException(
@@ -679,3 +527,157 @@ async def classify_crash_severity(
         results=results,
         distribution=distribution
     )
+
+
+# ============================================
+# WILDCARD ROUTES — must be last to avoid
+# shadowing specific-path routes above
+# ============================================
+
+@router.get("/{crash_id}", response_model=CrashAnalysisDetail)
+async def get_crash_analysis(
+    crash_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get crash analysis by ID
+
+    - **crash_id**: UUID of the crash analysis
+    """
+    result = await db.execute(
+        select(CrashAnalysis).where(CrashAnalysis.id == crash_id)
+    )
+    crash = result.scalar_one_or_none()
+
+    if not crash:
+        raise HTTPException(status_code=404, detail="Crash analysis not found")
+
+    return crash
+
+
+@router.get("/{crash_id}/similar", response_model=SimilarCrashesResponse)
+async def get_similar_crashes(
+    crash_id: str,
+    limit: int = 5,
+    min_similarity: float = 0.7,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Find crashes similar to the specified crash.
+
+    - **crash_id**: UUID of the crash analysis
+    - **limit**: Maximum number of similar crashes to return
+    - **min_similarity**: Minimum similarity threshold (0-1)
+    """
+    if not settings.ENABLE_CRASH_CLUSTERING:
+        raise HTTPException(
+            status_code=403,
+            detail="Crash clustering feature is disabled"
+        )
+
+    result = await db.execute(
+        select(CrashAnalysis).where(CrashAnalysis.id == crash_id)
+    )
+    target_crash = result.scalar_one_or_none()
+
+    if not target_crash:
+        raise HTTPException(status_code=404, detail="Crash analysis not found")
+
+    result = await db.execute(
+        select(CrashAnalysis).where(
+            CrashAnalysis.status == AnalysisStatus.COMPLETED,
+            CrashAnalysis.id != crash_id
+        ).limit(1000)
+    )
+    all_crashes = result.scalars().all()
+
+    clusterer = CrashClusterer(similarity_threshold=min_similarity)
+    similar = clusterer.find_similar_crashes(target_crash, all_crashes, limit=limit)
+
+    return SimilarCrashesResponse(
+        crash_id=crash_id,
+        similar_crashes=[SimilarCrashResult(**s) for s in similar],
+        count=len(similar)
+    )
+
+
+@router.post("/{crash_id}/chat", response_model=ChatResponse)
+async def chat_about_crash(
+    crash_id: str,
+    request: ChatRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Ask follow-up questions about a crash analysis.
+
+    - **crash_id**: UUID of the crash analysis
+    - **question**: Question to ask about the crash
+    """
+    if not settings.ENABLE_CHAT_FOLLOWUP:
+        raise HTTPException(
+            status_code=403,
+            detail="Chat feature is disabled"
+        )
+
+    result = await db.execute(
+        select(CrashAnalysis).where(CrashAnalysis.id == crash_id)
+    )
+    crash = result.scalar_one_or_none()
+
+    if not crash:
+        raise HTTPException(status_code=404, detail="Crash analysis not found")
+
+    if crash.status != AnalysisStatus.COMPLETED:
+        raise HTTPException(
+            status_code=400,
+            detail="Crash analysis not completed yet"
+        )
+
+    crash_data = {
+        "exception_code": crash.exception_code,
+        "exception_message": crash.exception_message,
+        "faulting_module": crash.faulting_module,
+        "stack_trace": crash.stack_trace,
+        "platform": crash.platform
+    }
+
+    analysis = crash.llm_analysis or {}
+
+    chatbot = CrashChatbot(crash_data, analysis)
+    answer = chatbot.ask(request.question)
+    history = chatbot.get_conversation_history()
+
+    return ChatResponse(
+        answer=answer,
+        conversation_history=history
+    )
+
+
+@router.delete("/{crash_id}", status_code=204)
+async def delete_crash_analysis(
+    crash_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Delete a crash analysis and its associated file
+
+    - **crash_id**: UUID of the crash analysis
+    """
+    result = await db.execute(
+        select(CrashAnalysis).where(CrashAnalysis.id == crash_id)
+    )
+    crash = result.scalar_one_or_none()
+
+    if not crash:
+        raise HTTPException(status_code=404, detail="Crash analysis not found")
+
+    if os.path.exists(crash.storage_path):
+        os.remove(crash.storage_path)
+        logger.info(f"Deleted file: {crash.storage_path}")
+
+    await db.delete(crash)
+    await db.commit()
+
+    logger.info(f"Deleted crash analysis: {crash_id}")
+
+    return None

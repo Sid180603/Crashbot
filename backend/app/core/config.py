@@ -118,6 +118,15 @@ class Settings(BaseSettings):
     # Slack (Phase 5)
     SLACK_WEBHOOK_URL: str = ""
     SLACK_NOTIFICATIONS_ENABLED: bool = False
+
+    # JIRA (Phase 5)
+    JIRA_URL: str = ""
+    JIRA_API_TOKEN: str = ""
+    JIRA_PROJECT_KEY: str = "CRASH"
+
+    # GitHub (Phase 5)
+    GITHUB_TOKEN: str = ""
+    GITHUB_REPO: str = ""
     
     # Rate Limiting
     RATE_LIMIT_ENABLED: bool = True

@@ -307,6 +307,12 @@ Provide ONLY the JSON response, no additional text.
                 "references": []
             }
     
+    def send_prompt(self, prompt: str) -> str:
+        """Public method for sending a raw prompt to the configured provider."""
+        if self.provider == "anthropic":
+            return self._analyze_with_claude(prompt)
+        return self._analyze_with_openai(prompt)
+
     def _analyze_with_function_calling(self, prompt: str) -> str:
         """
         Use function calling for structured crash analysis (Siemens AI)
@@ -498,7 +504,7 @@ Provide ONLY the JSON response, no additional text.
         
         # Average confidence scores
         confidence_scores = [r.get("confidence_score", 0) for r in results]
-        avg_confidence = sum(confidence_scores) // len(confidence_scores)
+        avg_confidence = sum(confidence_scores) / len(confidence_scores)
         
         # Combine explanations (from highest confidence model)
         best_result = max(results, key=lambda x: x.get("confidence_score", 0))

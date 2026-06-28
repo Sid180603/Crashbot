@@ -7,6 +7,7 @@ An intelligent crash dump analysis system that uses AI (LLMs) to provide actiona
 - Automated crash dump parsing (Windows via WinDbg, Linux via GDB, macOS via LLDB)
 - AI-powered root cause analysis using LLMs (OpenAI / Anthropic)
 - Similar crash lookup using RAG (ChromaDB vector search)
+
 - Interactive stack trace visualizations (D3.js)
 - Batch analysis, clustering, severity classification (ML)
 - JIRA / Slack / GitHub integrations

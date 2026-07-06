@@ -1,84 +1,73 @@
-/**
- * PHASE 3: Main Upload Page
- * File upload with drag-and-drop
- */
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Container,
-  Box,
-  Typography,
-  Paper,
-  Alert,
-  CircularProgress,
-} from '@mui/material';
-import { FileUpload } from '@/components/FileUpload';
-import { RecentAnalyses } from '@/components/RecentAnalyses';
-import { apiClient } from '@/api/client';
+import { Box, Grid, Fab, Dialog, DialogTitle, DialogContent, Tooltip } from '@mui/material';
+import { Add } from '@mui/icons-material';
+import { motion } from 'framer-motion';
+import { useCrashList } from '@/hooks/queries';
+import { StatsRow } from '@/components/dashboard/StatsRow';
+import { CrashTrendChart } from '@/components/dashboard/CrashTrendChart';
+import { SeverityChart } from '@/components/dashboard/SeverityChart';
+import { RecentAnalysesTable } from '@/components/dashboard/RecentAnalysesTable';
+import { DashboardSkeleton } from '@/components/feedback/SkeletonLoaders';
+import { FileUpload } from '@/components/upload/FileUpload';
 
-export default function HomePage() {
+export default function DashboardPage() {
   const router = useRouter();
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { data: crashes = [], isLoading } = useCrashList({ limit: 100 });
+  const [uploadOpen, setUploadOpen] = useState(false);
 
-  const handleFileUpload = async (file: File) => {
-    setUploading(true);
-    setError(null);
-
-    try {
-      const response = await apiClient.uploadCrashDump(file);
-      
-      // Redirect to analysis page
-      router.push(`/analysis/${response.id}`);
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Upload failed');
-      setUploading(false);
-    }
-  };
+  if (isLoading) return <DashboardSkeleton />;
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      {/* Header */}
-      <Box sx={{ mb: 6, textAlign: 'center' }}>
-        <Typography variant="h2" component="h1" gutterBottom>
-          Crashbot
-        </Typography>
-        <Typography variant="h5" color="text.secondary">
-          AI-Powered Crash Dump Analysis
-        </Typography>
-      </Box>
+    <Box>
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2 }}
+      >
+        <StatsRow crashes={crashes} />
 
-      {/* Upload Section */}
-      <Paper sx={{ p: 4, mb: 4 }}>
-        <Typography variant="h5" gutterBottom>
-          Upload Crash Dump
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Upload a crash dump file (.dmp, .dump, .core) to analyze
-        </Typography>
+        <Grid container spacing={2} sx={{ mt: 0.5 }}>
+          <Grid item xs={12} md={8}>
+            <CrashTrendChart crashes={crashes} />
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <SeverityChart crashes={crashes} />
+          </Grid>
+        </Grid>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
+        <RecentAnalysesTable crashes={crashes} />
+      </motion.div>
 
-        {uploading ? (
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-            <CircularProgress size={60} />
-            <Typography variant="body1" sx={{ mt: 2 }}>
-              Uploading and analyzing...
-            </Typography>
-          </Box>
-        ) : (
-          <FileUpload onFileSelect={handleFileUpload} />
-        )}
-      </Paper>
+      <Tooltip title="Quick Upload">
+        <Fab
+          color="primary"
+          onClick={() => setUploadOpen(true)}
+          sx={{ position: 'fixed', bottom: 32, right: 32 }}
+        >
+          <Add />
+        </Fab>
+      </Tooltip>
 
-      {/* Recent Analyses */}
-      <RecentAnalyses />
-    </Container>
+      <Dialog
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { background: '#161B22' } }}
+      >
+        <DialogTitle>Upload Crash Dump</DialogTitle>
+        <DialogContent>
+          <FileUpload
+            onSuccess={(id) => {
+              setUploadOpen(false);
+              router.push(`/analysis/${id}`);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+    </Box>
   );
 }

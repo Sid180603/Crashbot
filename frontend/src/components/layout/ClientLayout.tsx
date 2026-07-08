@@ -10,7 +10,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
 
   return (
-    <>
+    <SnackbarProvider>
       <Sidebar />
       <Box
         sx={{
@@ -25,7 +25,6 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
         <TopBar />
         <Box sx={{ flex: 1, p: 3 }}>{children}</Box>
       </Box>
-      <SnackbarProvider />
-    </>
+    </SnackbarProvider>
   );
 }

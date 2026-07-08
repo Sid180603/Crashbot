@@ -25,18 +25,19 @@ function humanSize(bytes?: number): string {
 type SortKey = keyof Pick<ModuleInfo, 'name' | 'version' | 'size'>;
 
 export function ModulesTab({ analysis }: { analysis: CrashAnalysis }) {
-  const modules = (analysis.loaded_modules ?? []) as ModuleInfo[];
+  const rawModules = analysis.loaded_modules;
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   const sorted = useMemo(() => {
+    const modules = (rawModules ?? []) as ModuleInfo[];
     return [...modules].sort((a, b) => {
       const aVal = a[sortKey] ?? '';
       const bVal = b[sortKey] ?? '';
       const cmp = String(aVal).localeCompare(String(bVal), undefined, { numeric: true });
       return sortDir === 'asc' ? cmp : -cmp;
     });
-  }, [modules, sortKey, sortDir]);
+  }, [rawModules, sortKey, sortDir]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -47,7 +48,7 @@ export function ModulesTab({ analysis }: { analysis: CrashAnalysis }) {
     }
   };
 
-  if (modules.length === 0) {
+  if (!rawModules || rawModules.length === 0) {
     return <EmptyState title="No module data" description="No loaded modules were captured." />;
   }
 

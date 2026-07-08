@@ -11,9 +11,10 @@ export function StackTraceTab({ analysis }: { analysis: CrashAnalysis }) {
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<number | null>(null);
 
-  const frames = analysis.stack_trace ?? [];
+  const stackTrace = analysis.stack_trace;
 
   const filtered = useMemo(() => {
+    const frames = stackTrace ?? [];
     if (!search) return frames;
     const q = search.toLowerCase();
     return frames.filter(
@@ -22,9 +23,9 @@ export function StackTraceTab({ analysis }: { analysis: CrashAnalysis }) {
         f.function?.toLowerCase().includes(q) ||
         f.address?.toLowerCase().includes(q)
     );
-  }, [frames, search]);
+  }, [stackTrace, search]);
 
-  if (frames.length === 0) {
+  if (!stackTrace || stackTrace.length === 0) {
     return <EmptyState title="No stack trace" description="No stack frames were captured." />;
   }
 

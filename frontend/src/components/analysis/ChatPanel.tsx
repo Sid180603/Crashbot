@@ -23,13 +23,14 @@ interface Props {
 export function ChatPanel({ crashId }: Props) {
   const { chatHistory, addChatMessage } = useAppStore();
   const messages: ChatMessage[] = chatHistory[crashId] ?? [];
+  const messageCount = messages.length;
   const [input, setInput] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
   const { mutateAsync: chat, isPending } = useCrashChat(crashId);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messageCount]);
 
   const handleSend = async () => {
     const q = input.trim();

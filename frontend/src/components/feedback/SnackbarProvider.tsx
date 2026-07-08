@@ -13,7 +13,7 @@ interface ToastCtx {
   showToast: (message: string, severity?: AlertColor) => void;
 }
 
-const ToastContext = createContext<ToastCtx>({ showToast: () => {} });
+export const ToastContext = createContext<ToastCtx>({ showToast: () => {} });
 
 export function useToast() {
   return useContext(ToastContext);
@@ -21,7 +21,7 @@ export function useToast() {
 
 let counter = 0;
 
-export function SnackbarProvider() {
+export function SnackbarProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const showToast = useCallback((message: string, severity: AlertColor = 'info') => {
@@ -32,6 +32,7 @@ export function SnackbarProvider() {
 
   return (
     <ToastContext.Provider value={{ showToast }}>
+      {children}
       {toasts.map((toast, i) => (
         <Snackbar
           key={toast.id}

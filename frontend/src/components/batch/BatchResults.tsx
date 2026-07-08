@@ -12,7 +12,6 @@ import {
   AreaChart,
   Area,
 } from 'recharts';
-import { SeverityChart } from '@/components/dashboard/SeverityChart';
 import type { BatchAnalysisResponse } from '@/types';
 
 interface Props {
